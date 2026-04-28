@@ -1,34 +1,43 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
   FlatList,
   Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  Dimensions,
-  Alert,
   RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { supabase } from "../api/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../api/supabase";
 
 const { width } = Dimensions.get("window");
 const COLUMN_WIDTH = width / 2 - 20;
 
+type PhotoItem = {
+  id: string;
+  foto_url: string;
+  mesaj?: string | null;
+  guest_name?: string | null;
+  is_approved?: boolean | null;
+  olusturulma_tarihi?: string;
+};
+
 export default function PhotoApproval() {
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hideApproved, setHideApproved] = useState(false);
 
-  const fetchPhotos = async () => {
-    // Veritabanındaki 'etkilesimler' tablosundan çekiyoruz
+  const fetchPhotos = useCallback(async () => {
     let query = supabase
       .from("etkilesimler")
       .select("*")
-      .order("olusturulma_tarihi", { ascending: false }); // DB sütun ismine göre sıralama
+      .not("foto_url", "is", null)
+      .order("olusturulma_tarihi", { ascending: false });
 
     if (hideApproved) {
       query = query.eq("is_approved", false);
@@ -38,89 +47,94 @@ export default function PhotoApproval() {
 
     if (error) {
       console.error("Fotoğraflar çekilemedi:", error.message);
+      Alert.alert("Hata", "Fotoğraflar çekilemedi.");
+    } else {
+      setPhotos(data || []);
     }
 
-    if (data) setPhotos(data);
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [hideApproved]);
 
   useEffect(() => {
     fetchPhotos();
 
-    // Realtime: Birisi yeni foto yüklediğinde listeyi otomatik yenile
     const channel = supabase
       .channel("photo-updates")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "etkilesimler" },
-        () => {
-          fetchPhotos();
-        },
+        fetchPhotos,
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [hideApproved]);
+  }, [fetchPhotos]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchPhotos();
-  }, [hideApproved]);
-
-  const handleAction = async (id: string, approved: boolean) => {
-    if (!approved) {
-      // SİLME İŞLEMİ ÖNCESİ GÜVENLİK SORUSU
-      Alert.alert(
-        "Admin Onayı",
-        "Bu fotoğrafı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
-        [
-          { text: "Vazgeç", style: "cancel" },
-          {
-            text: "Evet, Sil",
-            style: "destructive",
-            onPress: () => processUpdate(id, false, true),
-          },
-        ],
-      );
-    } else {
-      processUpdate(id, true, false);
-    }
+    await fetchPhotos();
   };
 
-  const processUpdate = async (
-    id: string,
-    approved: boolean,
-    isDelete: boolean,
-  ) => {
-    try {
-      if (isDelete) {
-        // SİLME İŞLEMİ
-        const { error } = await supabase
-          .from("etkilesimler")
-          .delete()
-          .eq("id", id); // Burada 'id' sütunuyla gelen id'yi eşleştiriyoruz
+  const approvePhoto = async (id: string) => {
+    const { error } = await supabase
+      .from("etkilesimler")
+      .update({ is_approved: true })
+      .eq("id", id);
 
-        if (error) throw error;
-        console.log("Başarıyla silindi:", id);
-      } else {
-        // ONAYLAMA İŞLEMİ
-        const { error } = await supabase
-          .from("etkilesimler")
-          .update({ is_approved: approved })
-          .eq("id", id);
-
-        if (error) throw error;
-      }
-
-      // İşlem bitince listeyi tazelemek için fetchPhotos'u çağırıyoruz
-      fetchPhotos();
-    } catch (error) {
-      console.error("İşlem hatası:", error.message);
-      Alert.alert("Hata", "İşlem gerçekleştirilemedi: " + error.message);
+    if (error) {
+      console.error("Onay hatası:", error.message);
+      Alert.alert("Onay hatası", error.message);
+      return;
     }
+
+    setPhotos((prev) =>
+      prev.map((photo) =>
+        photo.id === id ? { ...photo, is_approved: true } : photo,
+      ),
+    );
+  };
+
+  const deletePhoto = (id: string) => {
+    Alert.alert(
+      "Fotoğraf silinsin mi?",
+      "Bu işlem fotoğraf kaydını kalıcı olarak silecek.",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: () => confirmDeletePhoto(id),
+        },
+      ],
+    );
+  };
+
+  const confirmDeletePhoto = async (id: string) => {
+    const { data, error } = await supabase
+      .from("etkilesimler")
+      .delete()
+      .eq("id", id)
+      .select();
+
+    console.log("DELETE ID:", id);
+    console.log("DELETE DATA:", data);
+    console.log("DELETE ERROR:", error);
+
+    if (error) {
+      Alert.alert("Silme hatası", error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      Alert.alert("Silinemedi", "Kayıt bulunamadı veya silme yetkisi yok.");
+      return;
+    }
+
+    setPhotos((prev) => prev.filter((photo) => photo.id !== id));
+    Alert.alert("Başarılı", "Fotoğraf silindi.");
   };
 
   const renderEmpty = () => (
@@ -130,9 +144,8 @@ export default function PhotoApproval() {
     </View>
   );
 
-  const renderPhoto = ({ item }: { item: any }) => (
+  const renderPhoto = ({ item }: { item: PhotoItem }) => (
     <View style={styles.card}>
-      {/* foto_url sütunu DB ile eşleşti */}
       <Image source={{ uri: item.foto_url }} style={styles.image} />
 
       <View style={styles.overlay}>
@@ -142,27 +155,37 @@ export default function PhotoApproval() {
             <Text style={styles.approvedText}>Yayında</Text>
           </View>
         ) : (
-          <View style={[styles.approvedBadge, { backgroundColor: "#7B1113" }]}>
+          <View style={styles.pendingBadge}>
             <Text style={styles.approvedText}>Onay Bekliyor</Text>
           </View>
         )}
       </View>
 
+      <View style={styles.infoBox}>
+        <Text style={styles.guestName}>
+          {item.guest_name || "İsimsiz Misafir"}
+        </Text>
+
+        {!!item.mesaj && <Text style={styles.message}>{item.mesaj}</Text>}
+      </View>
+
       <View style={styles.actions}>
         <TouchableOpacity
-          onPress={() => handleAction(item.id, false)}
+          activeOpacity={0.7}
+          onPress={() => confirmDeletePhoto(item.id)}
           style={styles.deleteBtn}
         >
-          <Ionicons name="trash-outline" size={20} color="#7B1113" />
+          <Ionicons name="trash-outline" size={22} color="#7B1113" />
         </TouchableOpacity>
 
         {!item.is_approved && (
           <TouchableOpacity
-            onPress={() => handleAction(item.id, true)}
+            activeOpacity={0.7}
+            onPress={() => approvePhoto(item.id)}
             style={styles.approveBtn}
           >
             <Ionicons
-              name="cloud-upload-outline"
+              name="checkmark-circle-outline"
               size={18}
               color="#fff"
               style={{ marginRight: 5 }}
@@ -179,8 +202,10 @@ export default function PhotoApproval() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.headerTitle}>Anı Kumbarası</Text>
+
           <TouchableOpacity
-            onPress={() => setHideApproved(!hideApproved)}
+            activeOpacity={0.7}
+            onPress={() => setHideApproved((prev) => !prev)}
             style={[styles.filterBtn, hideApproved && styles.filterBtnActive]}
           >
             <Ionicons
@@ -190,6 +215,7 @@ export default function PhotoApproval() {
             />
           </TouchableOpacity>
         </View>
+
         <Text style={styles.headerSubtitle}>
           {hideApproved ? "SADECE ONAY BEKLEYENLER" : "TÜM FOTOĞRAFLAR"}
         </Text>
@@ -224,18 +250,26 @@ export default function PhotoApproval() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF9F9" },
+
   header: {
     padding: 25,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#FADADD",
   },
+
   titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  headerTitle: { fontSize: 24, color: "#7B1113", fontWeight: "bold" },
+
+  headerTitle: {
+    fontSize: 24,
+    color: "#7B1113",
+    fontWeight: "bold",
+  },
+
   headerSubtitle: {
     fontSize: 10,
     color: "#7B1113",
@@ -243,14 +277,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 2,
   },
+
   filterBtn: {
-    padding: 8,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#7B1113",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  filterBtnActive: { backgroundColor: "#7B1113" },
-  listContainer: { padding: 10, paddingBottom: 100 },
+
+  filterBtnActive: {
+    backgroundColor: "#7B1113",
+  },
+
+  listContainer: {
+    padding: 10,
+    paddingBottom: 100,
+  },
+
   card: {
     width: COLUMN_WIDTH,
     margin: 8,
@@ -262,7 +308,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  image: { width: "100%", height: 200, resizeMode: "cover" },
+
+  image: {
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
+  },
+
   overlay: {
     position: "absolute",
     top: 10,
@@ -271,6 +323,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-start",
   },
+
   approvedBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -279,19 +332,55 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 12,
   },
+
+  pendingBadge: {
+    backgroundColor: "#7B1113",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+
   approvedText: {
     color: "#fff",
     fontSize: 10,
     fontWeight: "bold",
     marginLeft: 4,
   },
+
+  infoBox: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
+
+  guestName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#444",
+  },
+
+  message: {
+    fontSize: 11,
+    color: "#777",
+    marginTop: 3,
+  },
+
   actions: {
     flexDirection: "row",
     padding: 12,
     justifyContent: "space-between",
     alignItems: "center",
+    backgroundColor: "#fff",
   },
-  deleteBtn: { padding: 10, borderRadius: 12, backgroundColor: "#FFF0F0" },
+
+  deleteBtn: {
+    width: 44,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FFF0F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   approveBtn: {
     backgroundColor: "#7B1113",
     flexDirection: "row",
@@ -302,7 +391,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  btnText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-  emptyContainer: { alignItems: "center", marginTop: 100 },
-  emptyText: { color: "#7B1113", marginTop: 10, opacity: 0.5 },
+
+  btnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 100,
+  },
+
+  emptyText: {
+    color: "#7B1113",
+    marginTop: 10,
+    opacity: 0.5,
+  },
 });

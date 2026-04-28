@@ -1,163 +1,251 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, Text, StyleSheet, FlatList, TouchableOpacity, 
-  TextInput, ActivityIndicator, SafeAreaView, StatusBar, Image, Alert 
-} from 'react-native';
-import { supabase } from '../api/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+  RefreshControl,
+  Linking,
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../api/supabase";
+
+type Guest = {
+  id: string;
+  ad_soyad: string;
+  slug: string;
+  durum?: string | null;
+  kisi_sayisi?: number | null;
+  olusturulma_tarihi?: string;
+};
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'guests' | 'photos'>('guests');
-  const [guests, setGuests] = useState<any[]>([]);
-  const [photos, setPhotos] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const fetchGuests = async () => {
+    const { data, error } = await supabase
+      .from("davetliler")
+      .select("*")
+      .order("ad_soyad", { ascending: true });
+
+    if (error) {
+      console.error("Davetliler çekilemedi:", error.message);
+      Alert.alert("Hata", "Davetliler çekilirken bir sorun oluştu.");
+      return;
+    }
+
+    setGuests(data || []);
+  };
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchGuests(), fetchPhotos()]);
+    await fetchGuests();
     setLoading(false);
   };
 
-  const fetchGuests = async () => {
-    const { data } = await supabase.from('davetliler').select('*').order('ad_soyad');
-    if (data) setGuests(data);
-  };
+  useEffect(() => {
+    fetchData();
 
-  const fetchPhotos = async () => {
-    const { data } = await supabase
-      .from('etkilesimler')
-      .select('*')
-      .order('olusturulma_tarihi', { ascending: false });
-    if (data) setPhotos(data);
-  };
+    const channel = supabase
+      .channel("guest-updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "davetliler" },
+        () => {
+          fetchGuests();
+        }
+      )
+      .subscribe();
 
-  const approvePhoto = async (id: string) => {
-    const { error } = await supabase
-      .from('etkilesimler')
-      .update({ is_approved: true })
-      .eq('id', id);
-    
-    if (error) {
-      Alert.alert("Hata", "Onaylanırken bir sorun oluştu.");
-    } else {
-      setPhotos(photos.map(p => p.id === id ? { ...p, is_approved: true } : p));
-    }
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  const deletePhoto = async (id: string) => {
-    Alert.alert("Emin misiniz?", "Bu fotoğraf kalıcı olarak silinecektir.", [
-      { text: "Vazgeç", style: "cancel" },
-      { text: "Sil", style: "destructive", onPress: async () => {
-        const { error } = await supabase.from('etkilesimler').delete().eq('id', id);
-        if (!error) setPhotos(photos.filter(p => p.id !== id));
-      }}
-    ]);
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchGuests();
+    setRefreshing(false);
+  }, []);
+
+  const normalizeStatus = (status?: string | null) =>
+    status?.toLowerCase().trim();
 
   const stats = {
     total: guests.length,
-    coming: guests.filter(g => g.durum === 'Geliyorum').length,
-    photoCount: photos.length,
-    pendingPhotos: photos.filter(p => !p.is_approved).length
+    coming: guests.filter(
+      (g) =>
+        normalizeStatus(g.durum) === "geliyorum" ||
+        normalizeStatus(g.durum) === "katılıyorum"
+    ).length,
+    notComing: guests.filter(
+      (g) =>
+        normalizeStatus(g.durum) === "gelmiyorum" ||
+        normalizeStatus(g.durum) === "katılmıyorum"
+    ).length,
+    pending: guests.filter((g) => !g.durum).length,
+    totalPeople: guests.reduce((sum, g) => sum + (g.kisi_sayisi || 0), 0),
   };
 
-  const renderGuestItem = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View>
-        <Text style={styles.cardTitle}>{item.ad_soyad}</Text>
-        <Text style={styles.cardSubtitle}>@{item.slug}</Text>
-      </View>
-      <View style={[styles.badge, { backgroundColor: item.durum === 'Geliyorum' ? '#E8F5E9' : '#FFF5F5' }]}>
-        <Text style={[styles.badgeText, { color: item.durum === 'Geliyorum' ? '#2E7D32' : '#7B1113' }]}>
-          {item.durum || 'Belirsiz'}
-        </Text>
-      </View>
-    </View>
+  const filteredGuests = guests.filter((guest) =>
+    guest.ad_soyad?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const renderPhotoItem = ({ item }: { item: any }) => (
-    <View style={styles.photoCard}>
-      <Image source={{ uri: item.foto_url }} style={styles.photoImage} resizeMode="cover" />
-      <View style={styles.photoInfo}>
-        <Text style={styles.photoAuthor}>{item.mesaj || "İsimsiz Misafir"}</Text>
-        <View style={styles.photoActions}>
-          {!item.is_approved ? (
-            <TouchableOpacity style={styles.approveBtn} onPress={() => approvePhoto(item.id)}>
-              <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
-              <Text style={styles.approveBtnText}>Onayla</Text>
+  const getStatusStyle = (status?: string | null) => {
+    const normalized = normalizeStatus(status);
+
+    if (normalized === "geliyorum" || normalized === "katılıyorum") {
+      return {
+        bg: "#E8F5E9",
+        color: "#2E7D32",
+        label: status || "Geliyor",
+        icon: "checkmark-circle" as const,
+      };
+    }
+
+    if (normalized === "gelmiyorum" || normalized === "katılmıyorum") {
+      return {
+        bg: "#FFF0F0",
+        color: "#7B1113",
+        label: status || "Gelmiyor",
+        icon: "close-circle" as const,
+      };
+    }
+
+    return {
+      bg: "#FFF8E1",
+      color: "#9A6B00",
+      label: "Belirsiz",
+      icon: "time" as const,
+    };
+  };
+
+  const openGuestLink = async (slug: string) => {
+    /**
+     * Burayı gerçek web-app domaininle değiştireceğiz.
+     * Şimdilik slug kontrolü için bırakıyoruz.
+     */
+    const url = `https://your-domain.com/card-content/${slug}`;
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Link açılamadı", url);
+    }
+  };
+
+  const renderGuestItem = ({ item }: { item: Guest }) => {
+    const status = getStatusStyle(item.durum);
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.guestLeft}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>
+              {item.ad_soyad?.charAt(0)?.toUpperCase() || "?"}
+            </Text>
+          </View>
+
+          <View style={styles.guestInfo}>
+            <Text style={styles.cardTitle}>{item.ad_soyad}</Text>
+
+            <TouchableOpacity onPress={() => openGuestLink(item.slug)}>
+              <Text style={styles.cardSubtitle}>/{item.slug}</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.approvedBadge}>
-              <Ionicons name="eye" size={16} color="#999" />
-              <Text style={styles.approvedText}>Yayında</Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => deletePhoto(item.id)}>
-            <Ionicons name="trash" size={20} color="#7B1113" />
-          </TouchableOpacity>
+
+            <Text style={styles.peopleText}>
+              {item.kisi_sayisi || 0} kişi
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.badge, { backgroundColor: status.bg }]}>
+          <Ionicons name={status.icon} size={13} color={status.color} />
+          <Text style={[styles.badgeText, { color: status.color }]}>
+            {status.label}
+          </Text>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Berna & Suat</Text>
-        <Text style={styles.headerSubtitle}>ADMIN DASHBOARD</Text>
+        <Text style={styles.headerSubtitle}>YÖNETİM PANELİ</Text>
         <View style={styles.divider} />
       </View>
 
-      <View style={styles.statsRow}>
-        <TouchableOpacity 
-          style={[styles.statCard, activeTab === 'guests' && styles.activeStat]} 
-          onPress={() => setActiveTab('guests')}
-        >
-          <Text style={[styles.statNumber, activeTab === 'guests' && {color: '#fff'}]}>{stats.total}</Text>
-          <Text style={[styles.statLabel, activeTab === 'guests' && {color: '#fff'}]}>Davetli</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.statCard, activeTab === 'photos' && styles.activeStat]} 
-          onPress={() => setActiveTab('photos')}
-        >
-          <Text style={[styles.statNumber, activeTab === 'photos' && {color: '#fff'}]}>{stats.pendingPhotos}</Text>
-          <Text style={[styles.statLabel, activeTab === 'photos' && {color: '#fff'}]}>Onay Bekleyen</Text>
-        </TouchableOpacity>
+      <View style={styles.statsGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{stats.total}</Text>
+          <Text style={styles.statLabel}>Davetli</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{stats.totalPeople}</Text>
+          <Text style={styles.statLabel}>Kişi</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{stats.coming}</Text>
+          <Text style={styles.statLabel}>Geliyor</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{stats.pending}</Text>
+          <Text style={styles.statLabel}>Belirsiz</Text>
+        </View>
       </View>
 
-      {activeTab === 'guests' ? (
-        <>
-          <View style={styles.searchContainer}>
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder="Davetli ara..." 
-              onChangeText={setSearch}
-              placeholderTextColor="#999"
-            />
-          </View>
-          <FlatList
-            data={guests.filter(g => g.ad_soyad?.toLowerCase().includes(search.toLowerCase()))}
-            renderItem={renderGuestItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContent}
-          />
-        </>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#999" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Davetli ara..."
+          value={search}
+          onChangeText={setSearch}
+          placeholderTextColor="#999"
+        />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#7B1113"
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
-          data={photos}
-          renderItem={renderPhotoItem}
-          keyExtractor={item => item.id}
+          data={filteredGuests}
+          renderItem={renderGuestItem}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          refreshing={loading}
-          onRefresh={fetchPhotos}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#7B1113"
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={54} color="#FADADD" />
+              <Text style={styles.emptyText}>Davetli bulunamadı.</Text>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -165,43 +253,185 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF9F9' },
-  header: { padding: 25, alignItems: 'center', backgroundColor: '#fff' },
-  headerTitle: { fontSize: 28, color: '#7B1113', fontWeight: '300', letterSpacing: 2 },
-  headerSubtitle: { fontSize: 10, color: '#7B1113', letterSpacing: 4, marginTop: 5, fontWeight: 'bold' },
-  divider: { width: 30, height: 1.5, backgroundColor: '#7B1113', marginTop: 12 },
-  
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginTop: 10, marginBottom: 10 },
-  statCard: { 
-    width: '45%', backgroundColor: '#fff', padding: 15, borderRadius: 18, alignItems: 'center',
-    shadowColor: '#7B1113', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4
+  container: {
+    flex: 1,
+    backgroundColor: "#FFF9F9",
   },
-  activeStat: { backgroundColor: '#7B1113' },
-  statNumber: { fontSize: 22, fontWeight: 'bold', color: '#7B1113' },
-  statLabel: { fontSize: 11, color: '#999', marginTop: 2, fontWeight: '600' },
 
-  searchContainer: { paddingHorizontal: 20, paddingVertical: 10 },
-  searchInput: { backgroundColor: '#fff', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FADADD' },
-
-  listContent: { padding: 20 },
-  card: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#fff', padding: 18, borderRadius: 15, marginBottom: 10, elevation: 2
+  header: {
+    paddingTop: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#FADADD",
   },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#444' },
-  cardSubtitle: { fontSize: 11, color: '#7B1113', opacity: 0.5 },
 
-  photoCard: { backgroundColor: '#fff', borderRadius: 15, marginBottom: 15, overflow: 'hidden', elevation: 3 },
-  photoImage: { width: '100%', height: 200 },
-  photoInfo: { padding: 15 },
-  photoAuthor: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 10 },
-  photoActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  approveBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', padding: 8, borderRadius: 10 },
-  approveBtnText: { color: '#2E7D32', fontWeight: 'bold', marginLeft: 5, fontSize: 12 },
-  deleteBtn: { padding: 8 },
-  approvedBadge: { flexDirection: 'row', alignItems: 'center' },
-  approvedText: { color: '#999', fontSize: 12, marginLeft: 5 },
+  headerTitle: {
+    fontSize: 28,
+    color: "#7B1113",
+    fontWeight: "300",
+    letterSpacing: 2,
+  },
 
-  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  badgeText: { fontSize: 10, fontWeight: '700' }
+  headerSubtitle: {
+    fontSize: 10,
+    color: "#7B1113",
+    letterSpacing: 4,
+    marginTop: 5,
+    fontWeight: "bold",
+  },
+
+  divider: {
+    width: 34,
+    height: 1.5,
+    backgroundColor: "#7B1113",
+    marginTop: 12,
+  },
+
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 10,
+  },
+
+  statCard: {
+    width: "47.8%",
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    borderRadius: 18,
+    alignItems: "center",
+    shadowColor: "#7B1113",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#7B1113",
+  },
+
+  statLabel: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 3,
+    fontWeight: "600",
+  },
+
+  searchContainer: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FADADD",
+    paddingHorizontal: 14,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchInput: {
+    flex: 1,
+    paddingLeft: 8,
+    fontSize: 14,
+    color: "#333",
+  },
+
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+
+  card: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 18,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: "#7B1113",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+
+  guestLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFF0F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  avatarText: {
+    color: "#7B1113",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+
+  guestInfo: {
+    flex: 1,
+  },
+
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#444",
+  },
+
+  cardSubtitle: {
+    fontSize: 12,
+    color: "#7B1113",
+    opacity: 0.65,
+    marginTop: 2,
+  },
+
+  peopleText: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 3,
+  },
+
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginLeft: 8,
+  },
+
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    marginLeft: 4,
+  },
+
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 80,
+  },
+
+  emptyText: {
+    color: "#7B1113",
+    marginTop: 10,
+    opacity: 0.5,
+  },
 });
