@@ -1,11 +1,13 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/lib/supabase";
 
 type EnvelopeProps = {
   guestName: string;
+  guestSlug: string;
+  guestId: string | number;
 };
 
 type ApprovedPhoto = {
@@ -13,14 +15,18 @@ type ApprovedPhoto = {
   foto_url: string;
 };
 
-export default function Envelope({ guestName }: EnvelopeProps) {
+export default function Envelope({
+  guestName,
+  guestSlug,
+  guestId,
+}: EnvelopeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [rsvpStatus, setRsvpStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [approvedPhotos, setApprovedPhotos] = useState<ApprovedPhoto[]>([]);
 
-  const displayName = guestName?.trim() || 'Değerli Misafirimiz';
+  const displayName = guestName?.trim() || "Değerli Misafirimiz";
 
   const floatingLeaves = useMemo(() => {
     if (!mounted) return [];
@@ -54,11 +60,11 @@ export default function Envelope({ guestName }: EnvelopeProps) {
     fetchApprovedPhotos();
 
     const channel = supabase
-      .channel('public:etkilesimler')
+      .channel("public:etkilesimler")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'etkilesimler' },
-        () => fetchApprovedPhotos()
+        "postgres_changes",
+        { event: "*", schema: "public", table: "etkilesimler" },
+        () => fetchApprovedPhotos(),
       )
       .subscribe();
 
@@ -69,21 +75,35 @@ export default function Envelope({ guestName }: EnvelopeProps) {
 
   const fetchApprovedPhotos = async () => {
     const { data, error } = await supabase
-      .from('etkilesimler')
-      .select('*')
-      .eq('is_approved', true)
-      .order('olusturulma_tarihi', { ascending: false });
+      .from("etkilesimler")
+      .select("*")
+      .eq("is_approved", true)
+      .order("olusturulma_tarihi", { ascending: false });
 
-    if (error) console.error('Veri çekme hatası:', error.message);
+    if (error) console.error("Veri çekme hatası:", error.message);
     if (data) setApprovedPhotos(data);
   };
 
   const handleRSVP = async (status: string) => {
+    const previousStatus = rsvpStatus;
     setRsvpStatus(status);
+
+    const { error } = await supabase
+      .from("davetliler")
+      .update({
+        durum: status,
+      })
+      .eq("slug", guestSlug);
+
+    if (error) {
+      console.error("RSVP güncelleme hatası:", error.message);
+      setRsvpStatus(previousStatus);
+      alert("Yanıtınız kaydedilemedi. Lütfen tekrar deneyin.");
+    }
   };
 
   const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     try {
       setUploading(true);
@@ -93,22 +113,22 @@ export default function Envelope({ guestName }: EnvelopeProps) {
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `wedding-photos/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('photos')
+          .from("photos")
           .upload(filePath, file);
 
         if (uploadError) throw uploadError;
 
         const {
           data: { publicUrl },
-        } = supabase.storage.from('photos').getPublicUrl(filePath);
+        } = supabase.storage.from("photos").getPublicUrl(filePath);
 
         const { error: insertError } = await supabase
-          .from('etkilesimler')
+          .from("etkilesimler")
           .insert([
             {
               foto_url: publicUrl,
@@ -120,23 +140,21 @@ export default function Envelope({ guestName }: EnvelopeProps) {
         if (insertError) throw insertError;
       }
 
-      alert('Fotoğraflarınız yüklendi. Onaylandıktan sonra görünecektir.');
+      alert("Fotoğraflarınız yüklendi. Onaylandıktan sonra görünecektir.");
     } catch (error: any) {
-      alert('Hata: ' + error.message);
+      alert("Hata: " + error.message);
     } finally {
       setUploading(false);
-      event.target.value = '';
+      event.target.value = "";
     }
   };
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#f7f8f1] px-4 py-10 text-[#334033]">
-      {/* Arka plan */}
+    <main className="relative min-h-[100dvh] overflow-x-hidden bg-[#f7f8f1] px-3 py-6 text-[#334033] sm:px-4 sm:py-10">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(154,172,143,0.22),transparent_34%),radial-gradient(circle_at_80%_80%,rgba(212,201,174,0.28),transparent_38%),linear-gradient(135deg,#fffefa_0%,#eef2e8_50%,#fbfaf4_100%)]" />
 
       <div className="pointer-events-none fixed inset-0 opacity-[0.16] bg-[linear-gradient(90deg,rgba(255,255,255,0.55)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[size:46px_46px]" />
 
-      {/* Hareketli yapraklar */}
       <div className="pointer-events-none fixed inset-0 z-10 overflow-hidden">
         {floatingLeaves.map((leaf) => (
           <span
@@ -151,14 +169,13 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                 opacity: leaf.opacity,
                 animationDelay: `${leaf.delay}s`,
                 animationDuration: `${leaf.duration}s`,
-                '--rotate': `${leaf.rotate}deg`,
+                "--rotate": `${leaf.rotate}deg`,
               } as React.CSSProperties
             }
           />
         ))}
       </div>
 
-      {/* Işık noktaları */}
       <div className="pointer-events-none fixed inset-0 z-10">
         {sparkles.map((s) => (
           <span
@@ -175,7 +192,6 @@ export default function Envelope({ guestName }: EnvelopeProps) {
         ))}
       </div>
 
-      {/* Kenar botanik süsler */}
       <div className="pointer-events-none fixed left-0 top-0 z-10 h-[340px] w-[220px] opacity-80">
         <BotanicalCorner position="left-top" />
       </div>
@@ -192,8 +208,7 @@ export default function Envelope({ guestName }: EnvelopeProps) {
         <BotanicalCorner position="right-bottom" />
       </div>
 
-      <section className="relative z-20 mx-auto flex min-h-[calc(100vh-80px)] w-full max-w-[560px] flex-col items-center justify-center gap-8">
-        {/* ZARF */}
+      <section className="relative z-20 mx-auto flex min-h-[calc(100dvh-48px)] w-full max-w-[560px] flex-col items-center justify-center gap-8 sm:min-h-[calc(100vh-80px)]">
         <AnimatePresence>
           {!isOpen && (
             <motion.button
@@ -208,8 +223,10 @@ export default function Envelope({ guestName }: EnvelopeProps) {
             >
               <div className="absolute -inset-8 rounded-full bg-[#93a586]/20 blur-3xl" />
 
-              <div className="relative h-[300px] overflow-hidden rounded-[18px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.24)]">
+              <div className="relative h-[245px] overflow-hidden rounded-[18px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.24)] sm:h-[300px]">
                 <div className="absolute inset-0 paper-grain opacity-35" />
+
+                <div className="absolute inset-0 rounded-[18px] border border-[#cdbb83]/40" />
 
                 <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[#f7f5ed] [clip-path:polygon(0_0,50%_70%,100%_0,100%_100%,0_100%)]" />
 
@@ -223,17 +240,13 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                   transition={{ duration: 0.4 }}
                 />
 
-                <div className="absolute left-1/2 top-[57%] z-20 flex h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#91a184] shadow-[0_16px_36px_rgba(79,97,70,0.32)] ring-4 ring-white/70">
-                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[#d7c79d]/70 text-white">
-                    <span className="font-serif text-[27px] italic">B</span>
-                    <span className="mx-1 font-serif text-[17px] text-[#f4e8bd]">
-                      &
-                    </span>
-                    <span className="font-serif text-[27px] italic">S</span>
+                <div className="absolute left-1/2 top-[57%] z-20 flex h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 shadow-[0_16px_36px_rgba(144,118,61,0.22)] ring-4 ring-white/70">
+                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/45">
+                    <GoldHeart />
                   </div>
                 </div>
 
-                <div className="absolute left-0 right-0 top-[42px] sm:top-[55px] z-20 text-center">
+                <div className="absolute left-0 right-0 top-[42px] z-20 text-center sm:top-[55px]">
                   <p className="text-[11px] uppercase tracking-[0.45em] text-[#8c9884]">
                     Sayın
                   </p>
@@ -247,9 +260,9 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                 <motion.span
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 1.4, repeat: Infinity }}
-                  className="text-2xl leading-none"
+                  className="text-2xl leading-none text-[#b99d56]"
                 >
-                  ︿
+                  ♥
                 </motion.span>
                 <p className="mt-1 text-[11px] uppercase tracking-[0.25em]">
                   Davetiyeyi açmak için zarfa dokunun
@@ -259,7 +272,6 @@ export default function Envelope({ guestName }: EnvelopeProps) {
           )}
         </AnimatePresence>
 
-        {/* DAVETİYE KARTI */}
         <motion.article
           initial={{ opacity: 0, y: 120, scale: 0.92 }}
           animate={
@@ -269,40 +281,45 @@ export default function Envelope({ guestName }: EnvelopeProps) {
           }
           transition={{ duration: 0.9, delay: isOpen ? 0.15 : 0 }}
           className={`w-full max-w-[520px] ${
-            isOpen ? 'pointer-events-auto' : 'pointer-events-none absolute'
+            isOpen ? "pointer-events-auto" : "pointer-events-none absolute"
           }`}
         >
-          <div className="relative rounded-[22px] border border-white/80 bg-[#fffefa]/95 p-5 shadow-[0_36px_110px_rgba(70,83,62,0.22)] backdrop-blur-md">
-            <div className="absolute inset-0 rounded-[22px] paper-grain opacity-30" />
+          <div className="relative rounded-[26px] border-[3px] border-[#d0b86f]/55 bg-[#fffefa]/95 p-3 shadow-[0_36px_110px_rgba(70,83,62,0.22)] backdrop-blur-md sm:p-5">
+            <div className="absolute inset-0 rounded-[26px] paper-grain opacity-30" />
 
-            <div className="relative overflow-hidden rounded-[17px] border border-[#d7c79d]/35 px-6 py-8 text-center sm:px-10">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(145,161,132,0.16),transparent_34%)]" />
+            <div className="relative overflow-hidden rounded-[20px] border-[2px] border-[#d7c79d]/70 px-5 py-8 text-center sm:px-10">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(205,187,131,0.22),transparent_35%),radial-gradient(circle_at_50%_100%,rgba(145,161,132,0.12),transparent_35%)]" />
+
+              <span className="absolute left-5 top-5 text-[17px] text-[#c8ad62]/70">
+                ♡
+              </span>
+              <span className="absolute right-5 top-5 text-[17px] text-[#c8ad62]/70">
+                ♡
+              </span>
+              <span className="absolute bottom-5 left-5 text-[15px] text-[#c8ad62]/60">
+                ♥
+              </span>
+              <span className="absolute bottom-5 right-5 text-[15px] text-[#c8ad62]/60">
+                ♥
+              </span>
 
               <div className="relative">
                 <div className="mx-auto mb-4 flex items-center justify-center gap-4">
                   <SmallLeaf />
-                  <div className="flex h-[74px] w-[74px] items-center justify-center rounded-full border border-[#d7c79d]/70 bg-white/70 shadow-sm">
-                    <span className="font-serif text-[27px] italic text-[#334033]">
-                      B
-                    </span>
-                    <span className="mx-1 font-serif text-[16px] text-[#b7a26d]">
-                      &
-                    </span>
-                    <span className="font-serif text-[27px] italic text-[#334033]">
-                      S
-                    </span>
+                  <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/55 shadow-[0_10px_24px_rgba(144,118,61,0.12)]">
+                    <GoldHeart />
                   </div>
                   <SmallLeaf flip />
                 </div>
 
-                <h1 className="font-serif text-[44px] italic leading-none text-[#334033] sm:text-[54px]">
+                <h1 className="font-serif text-[38px] italic leading-none text-[#334033] sm:text-[54px]">
                   Berna & Suat
                 </h1>
 
                 <div className="mx-auto my-5 flex items-center justify-center gap-3 text-[#d0bf8f]">
-                  <span className="h-px w-16 bg-gradient-to-r from-transparent to-[#d0bf8f]" />
-                  <span className="text-sm">♡</span>
-                  <span className="h-px w-16 bg-gradient-to-l from-transparent to-[#d0bf8f]" />
+                  <span className="h-px w-16 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                  <span className="text-sm text-[#b99d56]">♡</span>
+                  <span className="h-px w-16 bg-gradient-to-l from-transparent to-[#c8ad62]" />
                 </div>
 
                 <p className="mx-auto max-w-[330px] font-serif text-[17px] italic leading-8 text-[#586052]">
@@ -335,19 +352,19 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                   type="button"
                   onClick={() =>
                     window.open(
-                      'https://maps.app.goo.gl/nJaAETa7i7Za8ySj9',
-                      '_blank'
+                      "https://maps.app.goo.gl/nJaAETa7i7Za8ySj9",
+                      "_blank",
                     )
                   }
-                  className="mt-7 w-full rounded-[7px] border border-[#b9bfae] bg-white/70 px-4 py-4 text-[13px] tracking-[0.14em] text-[#5d6b58] shadow-sm transition hover:bg-[#f0f2e8] active:scale-[0.98]"
+                  className="mt-7 w-full rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-4 text-[13px] tracking-[0.14em] text-[#5d6b58] shadow-sm transition hover:bg-[#f7f0dd] active:scale-[0.98]"
                 >
                   📍 Konumu Haritada Gör
                 </button>
 
                 <div className="mx-auto my-7 flex items-center justify-center gap-3 text-[#d0bf8f]">
-                  <span className="h-px w-14 bg-gradient-to-r from-transparent to-[#d0bf8f]" />
-                  <span className="text-xs">♥</span>
-                  <span className="h-px w-14 bg-gradient-to-l from-transparent to-[#d0bf8f]" />
+                  <span className="h-px w-14 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                  <span className="text-xs text-[#b99d56]">♥</span>
+                  <span className="h-px w-14 bg-gradient-to-l from-transparent to-[#c8ad62]" />
                 </div>
 
                 <div>
@@ -364,16 +381,16 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                       <div className="flex flex-col gap-3">
                         <button
                           type="button"
-                          onClick={() => handleRSVP('EVET')}
-                          className="rounded-[7px] bg-[#8d9e82] px-4 py-4 text-[14px] font-medium tracking-[0.08em] text-white shadow-[0_14px_28px_rgba(91,108,79,0.22)] transition hover:bg-[#74866b] active:scale-[0.98]"
+                          onClick={() => handleRSVP("EVET")}
+                          className="rounded-[9px] bg-[#8d9e82] px-4 py-4 text-[14px] font-medium tracking-[0.08em] text-white shadow-[0_14px_28px_rgba(91,108,79,0.22)] transition hover:bg-[#74866b] active:scale-[0.98]"
                         >
                           ♥ Katılıyorum
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleRSVP('HAYIR')}
-                          className="rounded-[7px] border border-[#b9bfae] bg-white/70 px-4 py-4 text-[14px] tracking-[0.08em] text-[#5d6b58] transition hover:bg-[#f0f2e8] active:scale-[0.98]"
+                          onClick={() => handleRSVP("HAYIR")}
+                          className="rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-4 text-[14px] tracking-[0.08em] text-[#5d6b58] transition hover:bg-[#f7f0dd] active:scale-[0.98]"
                         >
                           ♡ Katılamıyorum
                         </button>
@@ -381,20 +398,20 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {rsvpStatus === 'EVET' ? (
+                      {rsvpStatus === "EVET" ? (
                         <div className="space-y-4">
                           <p className="font-serif text-[18px] italic leading-7 text-[#334033]">
                             Harika! Sizi aramızda görmek için sabırsızlanıyoruz.
                           </p>
 
-                          <div className="rounded-[10px] border border-dashed border-[#aab79c] bg-[#f3f5ee] p-5">
+                          <div className="rounded-[12px] border border-dashed border-[#c8ad62]/75 bg-[#f7f3e7]/80 p-5">
                             <p className="mb-4 text-[11px] uppercase leading-5 tracking-[0.18em] text-[#697564]">
                               Bu mutlu günü ölümsüzleştirdiğiniz fotoğrafları
                               bizlerle paylaşın.
                             </p>
 
-                            <label className="inline-block cursor-pointer rounded-[7px] border border-[#aab79c] bg-white px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-[#334033] transition hover:bg-[#8d9e82] hover:text-white">
-                              {uploading ? 'Yükleniyor...' : 'Fotoğraf Yükle'}
+                            <label className="inline-block cursor-pointer rounded-[9px] border border-[#c8ad62]/70 bg-white px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-[#334033] transition hover:bg-[#8d9e82] hover:text-white">
+                              {uploading ? "Yükleniyor..." : "Fotoğraf Yükle"}
                               <input
                                 type="file"
                                 multiple
@@ -421,7 +438,7 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                       </button>
 
                       {approvedPhotos.length > 0 && (
-                        <div className="border-t border-[#d7c79d]/35 pt-6">
+                        <div className="border-t border-[#d7c79d]/55 pt-6">
                           <p className="mb-4 text-[10px] uppercase tracking-[0.35em] text-[#7c8575]">
                             Anı Kumbarası
                           </p>
@@ -432,7 +449,7 @@ export default function Envelope({ guestName }: EnvelopeProps) {
                                 key={photo.id}
                                 src={photo.foto_url}
                                 alt="Düğün anısı"
-                                className="aspect-square w-full rounded-[7px] object-cover shadow-sm"
+                                className="aspect-square w-full rounded-[8px] border border-[#d7c79d]/30 object-cover shadow-sm"
                               />
                             ))}
                           </div>
@@ -449,7 +466,8 @@ export default function Envelope({ guestName }: EnvelopeProps) {
 
       <style jsx>{`
         .paper-grain {
-          background-image: radial-gradient(
+          background-image:
+            radial-gradient(
               circle at 20% 20%,
               rgba(255, 255, 255, 0.7),
               transparent 18%
@@ -476,7 +494,7 @@ export default function Envelope({ guestName }: EnvelopeProps) {
         }
 
         .leaf-float::after {
-          content: '';
+          content: "";
           position: absolute;
           left: 50%;
           top: 10%;
@@ -521,11 +539,22 @@ export default function Envelope({ guestName }: EnvelopeProps) {
   );
 }
 
+function GoldHeart() {
+  return (
+    <span
+      className="font-serif text-[38px] leading-none text-[#c8ad62]"
+      aria-hidden="true"
+    >
+      ♡
+    </span>
+  );
+}
+
 function SmallLeaf({ flip = false }: { flip?: boolean }) {
   return (
     <span
       className={`relative inline-flex h-5 w-10 items-center justify-center ${
-        flip ? 'scale-x-[-1]' : ''
+        flip ? "scale-x-[-1]" : ""
       }`}
     >
       <span className="absolute left-0 h-3 w-6 rotate-[-20deg] rounded-[100%_0_100%_0] bg-[#91a184]" />
@@ -537,7 +566,7 @@ function SmallLeaf({ flip = false }: { flip?: boolean }) {
 function SideBranch({ flip = false }: { flip?: boolean }) {
   return (
     <div
-      className={`relative h-24 w-12 ${flip ? 'scale-x-[-1]' : ''}`}
+      className={`relative h-24 w-12 ${flip ? "scale-x-[-1]" : ""}`}
       aria-hidden="true"
     >
       <span className="absolute left-6 top-0 h-24 w-px rotate-[12deg] bg-[#aab79c]" />
@@ -548,7 +577,7 @@ function SideBranch({ flip = false }: { flip?: boolean }) {
           style={{
             top,
             left: index % 2 === 0 ? 2 : 15,
-            transform: `rotate(${index % 2 === 0 ? '-25deg' : '35deg'})`,
+            transform: `rotate(${index % 2 === 0 ? "-25deg" : "35deg"})`,
             opacity: 0.75,
           }}
         />
@@ -560,15 +589,15 @@ function SideBranch({ flip = false }: { flip?: boolean }) {
 function BotanicalCorner({
   position,
 }: {
-  position: 'left-top' | 'right-top' | 'left-bottom' | 'right-bottom';
+  position: "left-top" | "right-top" | "left-bottom" | "right-bottom";
 }) {
-  const flipX = position.includes('right');
-  const flipY = position.includes('bottom');
+  const flipX = position.includes("right");
+  const flipY = position.includes("bottom");
 
   return (
     <div
-      className={`relative h-full w-full ${flipX ? 'scale-x-[-1]' : ''} ${
-        flipY ? 'scale-y-[-1]' : ''
+      className={`relative h-full w-full ${flipX ? "scale-x-[-1]" : ""} ${
+        flipY ? "scale-y-[-1]" : ""
       }`}
     >
       <span className="absolute left-10 top-0 h-[280px] w-[2px] origin-top rotate-[34deg] bg-[#90a184]/40" />
