@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import imageCompression from "browser-image-compression";
 
 type EnvelopeProps = {
   guestName: string;
@@ -91,9 +92,7 @@ export default function Envelope({
 
     const { error } = await supabase
       .from("davetliler")
-      .update({
-        durum: status,
-      })
+      .update({ durum: status })
       .eq("slug", guestSlug);
 
     if (error) {
@@ -122,13 +121,19 @@ export default function Envelope({
           continue;
         }
 
+        const compressedFile = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1600,
+          useWebWorker: true,
+        });
+
         const fileExt = file.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${guestId}-${crypto.randomUUID()}.${fileExt}`;
         const filePath = `wedding-photos/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("photos")
-          .upload(filePath, file);
+          .upload(filePath, compressedFile);
 
         if (uploadError) throw uploadError;
 
@@ -151,6 +156,7 @@ export default function Envelope({
 
       alert("Fotoğraflarınız yüklendi. Onaylandıktan sonra görünecektir.");
     } catch (error: any) {
+      console.error(error);
       alert("Hata: " + error.message);
     } finally {
       setUploading(false);
@@ -161,6 +167,11 @@ export default function Envelope({
   return (
     <main className="relative min-h-[100dvh] overflow-x-hidden bg-[#f7f8f1] px-3 py-3 text-[#334033] sm:px-4 sm:py-8">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(154,172,143,0.22),transparent_34%),radial-gradient(circle_at_80%_80%,rgba(212,201,174,0.28),transparent_38%),linear-gradient(135deg,#fffefa_0%,#eef2e8_50%,#fbfaf4_100%)]" />
+
+      <div className="pointer-events-none fixed inset-0 z-[8] overflow-hidden">
+        <div className="gold-wave gold-wave-top" />
+        <div className="gold-wave gold-wave-bottom" />
+      </div>
 
       <div className="pointer-events-none fixed inset-0 opacity-[0.14] bg-[linear-gradient(90deg,rgba(255,255,255,0.55)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[size:46px_46px]" />
 
@@ -189,7 +200,7 @@ export default function Envelope({
         {sparkles.map((s) => (
           <span
             key={s.id}
-            className="sparkle absolute rounded-full bg-white"
+            className="sparkle absolute rounded-full"
             style={{
               left: `${s.left}%`,
               top: `${s.top}%`,
@@ -232,44 +243,80 @@ export default function Envelope({
             >
               <div className="absolute -inset-8 rounded-full bg-[#93a586]/20 blur-3xl" />
 
-              <div className="relative h-[230px] overflow-hidden rounded-[18px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.24)]">
+              <div className="relative h-[245px] overflow-hidden rounded-[24px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.22)] ring-1 ring-[#d7c79d]/40">
                 <div className="absolute inset-0 paper-grain opacity-35" />
-                <div className="absolute inset-0 rounded-[18px] border border-[#cdbb83]/40" />
-                <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[#f7f5ed] [clip-path:polygon(0_0,50%_70%,100%_0,100%_100%,0_100%)]" />
-                <div className="absolute inset-y-0 left-0 w-1/2 bg-[#faf8f0] [clip-path:polygon(0_0,100%_50%,0_100%)]" />
-                <div className="absolute inset-y-0 right-0 w-1/2 bg-[#f0f2e8] [clip-path:polygon(100%_0,0_50%,100%_100%)]" />
+                <div className="absolute inset-0 rounded-[24px] border border-[#cdbb83]/40" />
 
+                {/* Tek renk zarf zemini */}
+                <div className="absolute inset-0 z-[1] bg-[#fffdf7]" />
+
+                {/* Çok hafif alt kapak izi */}
+                <div className="absolute inset-x-0 bottom-0 z-[2] h-[50%] bg-[#f8f5eb] opacity-55 [clip-path:polygon(0_0,50%_62%,100%_0,100%_100%,0_100%)]" />
+
+                {/* Çok hafif sol iz */}
+                <div className="absolute inset-y-0 left-0 z-[2] w-1/2 bg-[#f8f5eb] opacity-35 [clip-path:polygon(0_0,100%_52%,0_100%)]" />
+
+                {/* Çok hafif sağ iz */}
+                <div className="absolute inset-y-0 right-0 z-[2] w-1/2 bg-[#f8f5eb] opacity-35 [clip-path:polygon(100%_0,0_52%,100%_100%)]" />
+
+                {/* Üst kapak tek renk */}
                 <motion.div
-                  className="absolute inset-x-0 top-0 h-[68%] origin-top rounded-t-[18px] bg-[#fffefa] shadow-[0_16px_40px_rgba(75,89,68,0.12)] [clip-path:polygon(0_0,100%_0,50%_100%)]"
-                  whileHover={{ rotateX: 8 }}
+                  className="absolute inset-x-0 top-0 z-[3] h-[43%] origin-top rounded-t-[24px] bg-[#fffdf7] shadow-[0_10px_24px_rgba(75,89,68,0.06)] [clip-path:polygon(0_0,100%_0,50%_100%)]"
+                  whileHover={{ rotateX: 5 }}
                   transition={{ duration: 0.4 }}
                 />
 
-                <div className="absolute left-1/2 top-[57%] z-20 flex h-[78px] w-[78px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 shadow-[0_16px_36px_rgba(144,118,61,0.22)] ring-4 ring-white/70">
-                  <div className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/45">
-                    <GoldHeart />
+                {/* Yazı alanı */}
+                <div className="absolute left-0 right-0 top-[38px] z-[5] text-center">
+                  <div className="mx-auto mt-2 flex items-center justify-center gap-3 text-[#c8ad62]/70">
+                    <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                    <span className="text-[13px] leading-none">✦</span>
+                    <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#c8ad62]" />
                   </div>
-                </div>
 
-                <div className="absolute left-0 right-0 top-[40px] z-20 text-center">
-                  <p className="text-[10px] uppercase tracking-[0.42em] text-[#8c9884]">
-                    Sayın
-                  </p>
-                  <p className="mt-3 font-serif text-[24px] italic text-[#334033]">
+                  <p className="mt-4 font-serif text-[22px] italic text-[#334033]">
                     {displayName}
                   </p>
+                </div>
+
+                {/* Mühür */}
+                <div className="absolute left-1/2 top-[69%] z-[7] flex h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-[0_18px_40px_rgba(144,118,61,0.24)] ring-4 ring-white/70 backdrop-blur-sm">
+                  <motion.span
+                    className="absolute -right-1 top-2 text-[#d4af37]"
+                    animate={{
+                      opacity: [0, 1, 0],
+                      scale: [0.6, 1.2, 0.6],
+                      rotate: [0, 18, 0],
+                    }}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                  >
+                    ✦
+                  </motion.span>
+
+                  <div className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/45">
+                    <GoldHeart />
+                  </div>
                 </div>
               </div>
 
               <div className="mt-5 flex flex-col items-center text-[#71806b]">
-                <motion.span
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 1.4, repeat: Infinity }}
-                  className="text-2xl leading-none text-[#b99d56]"
-                >
-                  ♥
-                </motion.span>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.22em]">
+                <div className="mb-2 flex items-center gap-3">
+                  <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                  <motion.span
+                    animate={{ scale: [1, 1.18, 1], rotate: [0, 6, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-[22px] leading-none text-[#b99d56]"
+                  >
+                    ✦
+                  </motion.span>
+                  <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#c8ad62]" />
+                </div>
+
+                <p className="font-serif text-[18px] italic text-[#334033]">
+                  Berna & Suat
+                </p>
+
+                <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-[#7c8575]">
                   Davetiyeyi açmak için zarfa dokunun
                 </p>
               </div>
@@ -386,6 +433,7 @@ export default function Envelope({
                       <div className="flex flex-col gap-2">
                         <button
                           type="button"
+                          disabled={showRsvpBurst}
                           onClick={() => {
                             setShowRsvpBurst(true);
 
@@ -394,7 +442,7 @@ export default function Envelope({
                               setShowRsvpBurst(false);
                             }, 850);
                           }}
-                          className="relative overflow-visible rounded-[9px] bg-[#8d9e82] px-4 py-3 text-[13px] font-medium tracking-[0.08em] text-white shadow-[0_10px_20px_rgba(91,108,79,0.18)] transition hover:bg-[#74866b] active:scale-[0.98]"
+                          className="relative overflow-visible rounded-[9px] bg-[#8d9e82] px-4 py-3 text-[13px] font-medium tracking-[0.08em] text-white shadow-[0_10px_20px_rgba(91,108,79,0.18)] transition hover:bg-[#74866b] active:scale-[0.98] disabled:cursor-wait disabled:opacity-90"
                         >
                           {showRsvpBurst && (
                             <span className="pointer-events-none absolute inset-0 z-20">
@@ -404,8 +452,12 @@ export default function Envelope({
                                   className="rsvp-star absolute left-1/2 top-1/2 text-[#d4af37]"
                                   style={
                                     {
-                                      "--x": `${Math.cos((i / 18) * Math.PI * 2) * 72}px`,
-                                      "--y": `${Math.sin((i / 18) * Math.PI * 2) * 46}px`,
+                                      "--x": `${
+                                        Math.cos((i / 18) * Math.PI * 2) * 72
+                                      }px`,
+                                      "--y": `${
+                                        Math.sin((i / 18) * Math.PI * 2) * 46
+                                      }px`,
                                       animationDelay: `${i * 0.018}s`,
                                     } as React.CSSProperties
                                   }
@@ -540,6 +592,14 @@ export default function Envelope({
           box-shadow: 0 0 18px rgba(255, 255, 255, 0.9);
         }
 
+        .rsvp-star {
+          font-size: 12px;
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.2);
+          animation: rsvpStarBurst 0.9s ease-out forwards;
+          text-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+        }
+
         @keyframes leafFloat {
           0% {
             transform: translate3d(0, -20px, 0) rotate(var(--rotate));
@@ -566,24 +626,14 @@ export default function Envelope({
           }
         }
 
-        .rsvp-star {
-          font-size: 12px;
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.2);
-          animation: rsvpStarBurst 0.9s ease-out forwards;
-          text-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
-        }
-
         @keyframes rsvpStarBurst {
           0% {
             opacity: 0;
             transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
           }
-
           20% {
             opacity: 1;
           }
-
           100% {
             opacity: 0;
             transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y)))
