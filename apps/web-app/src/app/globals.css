@@ -33,3 +33,28 @@ body {
 .animate-bounce-slow {
   animation: bounce-slow 4s ease-in-out infinite;
 }
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, -80px, 0) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.85;
+  }
+
+  50% {
+    transform: translate3d(40px, 50vh, 0) rotate(180deg);
+  }
+
+  100% {
+    transform: translate3d(-30px, 110vh, 0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.petal-fall {
+  animation-name: petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}

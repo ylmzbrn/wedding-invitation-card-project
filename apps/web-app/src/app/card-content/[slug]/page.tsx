@@ -2,9 +2,14 @@ import { supabase } from '@/lib/supabase';
 import Envelope from '@/components/Envelope';
 import { notFound } from 'next/navigation';
 
-export default async function DavetiyePage({ params }: { params: { slug: string } }) {
-  // Next.js 15 kurallarına göre params'ı bekliyoruz
-  const { slug } = await (params as any); 
+type PageProps = {
+  params: Promise<{
+    slug: string;
+  }>;
+};
+
+export default async function DavetiyePage({ params }: PageProps) {
+  const { slug } = await params;
 
   const { data: davetli, error } = await supabase
     .from('davetliler')
@@ -13,7 +18,7 @@ export default async function DavetiyePage({ params }: { params: { slug: string 
     .single();
 
   if (error || !davetli) {
-    return notFound();
+    notFound();
   }
 
   return <Envelope guestName={davetli.ad_soyad} />;
