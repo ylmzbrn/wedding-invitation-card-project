@@ -25,33 +25,34 @@ export default function Envelope({
   const [rsvpStatus, setRsvpStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [approvedPhotos, setApprovedPhotos] = useState<ApprovedPhoto[]>([]);
+  const [showRsvpBurst, setShowRsvpBurst] = useState(false);
 
   const displayName = guestName?.trim() || "Değerli Misafirimiz";
 
   const floatingLeaves = useMemo(() => {
     if (!mounted) return [];
 
-    return Array.from({ length: 26 }).map((_, i) => ({
+    return Array.from({ length: 18 }).map((_, i) => ({
       id: i,
       left: Math.random() * 100,
       top: Math.random() * 100,
-      size: 18 + Math.random() * 34,
+      size: 14 + Math.random() * 24,
       delay: Math.random() * 6,
       duration: 9 + Math.random() * 10,
       rotate: Math.random() * 360,
-      opacity: 0.18 + Math.random() * 0.24,
+      opacity: 0.12 + Math.random() * 0.2,
     }));
   }, [mounted]);
 
   const sparkles = useMemo(() => {
     if (!mounted) return [];
 
-    return Array.from({ length: 22 }).map((_, i) => ({
+    return Array.from({ length: 14 }).map((_, i) => ({
       id: i,
       left: Math.random() * 100,
       top: Math.random() * 100,
       delay: Math.random() * 5,
-      size: 3 + Math.random() * 5,
+      size: 3 + Math.random() * 4,
     }));
   }, [mounted]);
 
@@ -111,8 +112,16 @@ export default function Envelope({
       const files = event.target.files;
       if (!files || files.length === 0) return;
 
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+
+        if (file.size > MAX_FILE_SIZE) {
+          alert("Fotoğraf boyutu en fazla 5 MB olabilir.");
+          continue;
+        }
+
         const fileExt = file.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `wedding-photos/${fileName}`;
@@ -150,10 +159,10 @@ export default function Envelope({
   };
 
   return (
-    <main className="relative min-h-[100dvh] overflow-x-hidden bg-[#f7f8f1] px-3 py-6 text-[#334033] sm:px-4 sm:py-10">
+    <main className="relative min-h-[100dvh] overflow-x-hidden bg-[#f7f8f1] px-3 py-3 text-[#334033] sm:px-4 sm:py-8">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(154,172,143,0.22),transparent_34%),radial-gradient(circle_at_80%_80%,rgba(212,201,174,0.28),transparent_38%),linear-gradient(135deg,#fffefa_0%,#eef2e8_50%,#fbfaf4_100%)]" />
 
-      <div className="pointer-events-none fixed inset-0 opacity-[0.16] bg-[linear-gradient(90deg,rgba(255,255,255,0.55)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[size:46px_46px]" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.14] bg-[linear-gradient(90deg,rgba(255,255,255,0.55)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[size:46px_46px]" />
 
       <div className="pointer-events-none fixed inset-0 z-10 overflow-hidden">
         {floatingLeaves.map((leaf) => (
@@ -192,23 +201,23 @@ export default function Envelope({
         ))}
       </div>
 
-      <div className="pointer-events-none fixed left-0 top-0 z-10 h-[340px] w-[220px] opacity-80">
+      <div className="pointer-events-none fixed left-0 top-0 z-10 h-[230px] w-[150px] opacity-60">
         <BotanicalCorner position="left-top" />
       </div>
 
-      <div className="pointer-events-none fixed right-0 top-0 z-10 h-[320px] w-[210px] opacity-70">
+      <div className="pointer-events-none fixed right-0 top-0 z-10 h-[230px] w-[150px] opacity-55">
         <BotanicalCorner position="right-top" />
       </div>
 
-      <div className="pointer-events-none fixed bottom-0 left-0 z-10 h-[340px] w-[240px] opacity-70">
+      <div className="pointer-events-none fixed bottom-0 left-0 z-10 h-[230px] w-[160px] opacity-55">
         <BotanicalCorner position="left-bottom" />
       </div>
 
-      <div className="pointer-events-none fixed bottom-0 right-0 z-10 h-[360px] w-[250px] opacity-80">
+      <div className="pointer-events-none fixed bottom-0 right-0 z-10 h-[230px] w-[160px] opacity-60">
         <BotanicalCorner position="right-bottom" />
       </div>
 
-      <section className="relative z-20 mx-auto flex min-h-[calc(100dvh-48px)] w-full max-w-[560px] flex-col items-center justify-center gap-8 sm:min-h-[calc(100vh-80px)]">
+      <section className="relative z-20 mx-auto flex min-h-[calc(100dvh-24px)] w-full max-w-[440px] flex-col items-center justify-center gap-4">
         <AnimatePresence>
           {!isOpen && (
             <motion.button
@@ -218,20 +227,16 @@ export default function Envelope({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 80, scale: 0.9 }}
               transition={{ duration: 0.75, ease: [0.19, 1, 0.22, 1] }}
-              className="group relative w-full max-w-[520px] outline-none"
+              className="group relative w-full max-w-[420px] outline-none"
               aria-label="Davetiye zarfını aç"
             >
               <div className="absolute -inset-8 rounded-full bg-[#93a586]/20 blur-3xl" />
 
-              <div className="relative h-[245px] overflow-hidden rounded-[18px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.24)] sm:h-[300px]">
+              <div className="relative h-[230px] overflow-hidden rounded-[18px] border border-white/80 bg-[#fffefa] shadow-[0_34px_100px_rgba(75,89,68,0.24)]">
                 <div className="absolute inset-0 paper-grain opacity-35" />
-
                 <div className="absolute inset-0 rounded-[18px] border border-[#cdbb83]/40" />
-
                 <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[#f7f5ed] [clip-path:polygon(0_0,50%_70%,100%_0,100%_100%,0_100%)]" />
-
                 <div className="absolute inset-y-0 left-0 w-1/2 bg-[#faf8f0] [clip-path:polygon(0_0,100%_50%,0_100%)]" />
-
                 <div className="absolute inset-y-0 right-0 w-1/2 bg-[#f0f2e8] [clip-path:polygon(100%_0,0_50%,100%_100%)]" />
 
                 <motion.div
@@ -240,17 +245,17 @@ export default function Envelope({
                   transition={{ duration: 0.4 }}
                 />
 
-                <div className="absolute left-1/2 top-[57%] z-20 flex h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 shadow-[0_16px_36px_rgba(144,118,61,0.22)] ring-4 ring-white/70">
-                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/45">
+                <div className="absolute left-1/2 top-[57%] z-20 flex h-[78px] w-[78px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/75 shadow-[0_16px_36px_rgba(144,118,61,0.22)] ring-4 ring-white/70">
+                  <div className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/45">
                     <GoldHeart />
                   </div>
                 </div>
 
-                <div className="absolute left-0 right-0 top-[42px] z-20 text-center sm:top-[55px]">
-                  <p className="text-[11px] uppercase tracking-[0.45em] text-[#8c9884]">
+                <div className="absolute left-0 right-0 top-[40px] z-20 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.42em] text-[#8c9884]">
                     Sayın
                   </p>
-                  <p className="mt-3 font-serif text-[25px] italic text-[#334033]">
+                  <p className="mt-3 font-serif text-[24px] italic text-[#334033]">
                     {displayName}
                   </p>
                 </div>
@@ -264,7 +269,7 @@ export default function Envelope({
                 >
                   ♥
                 </motion.span>
-                <p className="mt-1 text-[11px] uppercase tracking-[0.25em]">
+                <p className="mt-1 text-[10px] uppercase tracking-[0.22em]">
                   Davetiyeyi açmak için zarfa dokunun
                 </p>
               </div>
@@ -273,80 +278,80 @@ export default function Envelope({
         </AnimatePresence>
 
         <motion.article
-          initial={{ opacity: 0, y: 120, scale: 0.92 }}
+          initial={{ opacity: 0, y: 80, scale: 0.94 }}
           animate={
             isOpen
               ? { opacity: 1, y: 0, scale: 1 }
-              : { opacity: 0, y: 120, scale: 0.92 }
+              : { opacity: 0, y: 80, scale: 0.94 }
           }
-          transition={{ duration: 0.9, delay: isOpen ? 0.15 : 0 }}
-          className={`w-full max-w-[520px] ${
+          transition={{ duration: 0.75, delay: isOpen ? 0.1 : 0 }}
+          className={`w-full max-w-[410px] ${
             isOpen ? "pointer-events-auto" : "pointer-events-none absolute"
           }`}
         >
-          <div className="relative rounded-[26px] border-[3px] border-[#d0b86f]/55 bg-[#fffefa]/95 p-3 shadow-[0_36px_110px_rgba(70,83,62,0.22)] backdrop-blur-md sm:p-5">
-            <div className="absolute inset-0 rounded-[26px] paper-grain opacity-30" />
+          <div className="relative rounded-[22px] border-[2px] border-[#d0b86f]/55 bg-[#fffefa]/95 p-2 shadow-[0_24px_70px_rgba(70,83,62,0.18)] backdrop-blur-md">
+            <div className="absolute inset-0 rounded-[22px] paper-grain opacity-25" />
 
-            <div className="relative overflow-hidden rounded-[20px] border-[2px] border-[#d7c79d]/70 px-5 py-8 text-center sm:px-10">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(205,187,131,0.22),transparent_35%),radial-gradient(circle_at_50%_100%,rgba(145,161,132,0.12),transparent_35%)]" />
+            <div className="relative overflow-hidden rounded-[18px] border-[2px] border-[#d7c79d]/70 px-4 py-5 text-center">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(205,187,131,0.2),transparent_35%),radial-gradient(circle_at_50%_100%,rgba(145,161,132,0.1),transparent_35%)]" />
 
-              <span className="absolute left-5 top-5 text-[17px] text-[#c8ad62]/70">
+              <span className="absolute left-4 top-4 text-[14px] text-[#c8ad62]/65">
                 ♡
               </span>
-              <span className="absolute right-5 top-5 text-[17px] text-[#c8ad62]/70">
+              <span className="absolute right-4 top-4 text-[14px] text-[#c8ad62]/65">
                 ♡
               </span>
-              <span className="absolute bottom-5 left-5 text-[15px] text-[#c8ad62]/60">
+              <span className="absolute bottom-4 left-4 text-[12px] text-[#c8ad62]/55">
                 ♥
               </span>
-              <span className="absolute bottom-5 right-5 text-[15px] text-[#c8ad62]/60">
+              <span className="absolute bottom-4 right-4 text-[12px] text-[#c8ad62]/55">
                 ♥
               </span>
 
               <div className="relative">
-                <div className="mx-auto mb-4 flex items-center justify-center gap-4">
+                <div className="mx-auto mb-3 flex items-center justify-center gap-3">
                   <SmallLeaf />
-                  <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/55 shadow-[0_10px_24px_rgba(144,118,61,0.12)]">
-                    <GoldHeart />
+                  <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full border border-[#c8ad62]/80 bg-white/55 shadow-[0_8px_18px_rgba(144,118,61,0.1)]">
+                    <GoldHeart small />
                   </div>
                   <SmallLeaf flip />
                 </div>
 
-                <h1 className="font-serif text-[38px] italic leading-none text-[#334033] sm:text-[54px]">
+                <h1 className="font-serif text-[34px] italic leading-none text-[#334033]">
                   Berna & Suat
                 </h1>
 
-                <div className="mx-auto my-5 flex items-center justify-center gap-3 text-[#d0bf8f]">
-                  <span className="h-px w-16 bg-gradient-to-r from-transparent to-[#c8ad62]" />
-                  <span className="text-sm text-[#b99d56]">♡</span>
-                  <span className="h-px w-16 bg-gradient-to-l from-transparent to-[#c8ad62]" />
+                <div className="mx-auto my-3 flex items-center justify-center gap-3 text-[#d0bf8f]">
+                  <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                  <span className="text-xs text-[#b99d56]">♡</span>
+                  <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#c8ad62]" />
                 </div>
 
-                <p className="mx-auto max-w-[330px] font-serif text-[17px] italic leading-8 text-[#586052]">
+                <p className="mx-auto max-w-[300px] font-serif text-[15px] italic leading-6 text-[#586052]">
                   Hayatımızın en anlamlı gününde sizleri aramızda görmekten
                   mutluluk duyarız.
                 </p>
 
-                <div className="my-7 flex items-center justify-center gap-5">
+                <div className="my-4 flex items-center justify-center gap-3">
                   <SideBranch />
                   <div>
-                    <p className="font-serif text-[54px] leading-none text-[#6f8068]">
+                    <p className="font-serif text-[44px] leading-none text-[#6f8068]">
                       16
                     </p>
-                    <p className="mt-2 text-[13px] uppercase tracking-[0.35em] text-[#334033]">
+                    <p className="mt-1 text-[11px] uppercase tracking-[0.32em] text-[#334033]">
                       Mayıs 2026
                     </p>
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-[#7c8575]">
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#7c8575]">
                       Cumartesi • Saat 14:00
                     </p>
                   </div>
                   <SideBranch flip />
                 </div>
 
-                <p className="font-serif text-[16px] font-medium text-[#334033]">
+                <p className="font-serif text-[15px] font-medium text-[#334033]">
                   Botanik Park Düğün Salonu
                 </p>
-                <p className="mt-1 text-[13px] text-[#7c8575]">Eskişehir</p>
+                <p className="mt-0.5 text-[12px] text-[#7c8575]">Eskişehir</p>
 
                 <button
                   type="button"
@@ -356,61 +361,87 @@ export default function Envelope({
                       "_blank",
                     )
                   }
-                  className="mt-7 w-full rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-4 text-[13px] tracking-[0.14em] text-[#5d6b58] shadow-sm transition hover:bg-[#f7f0dd] active:scale-[0.98]"
+                  className="mt-4 w-full rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-3 text-[12px] tracking-[0.13em] text-[#5d6b58] shadow-sm transition hover:bg-[#f7f0dd] active:scale-[0.98]"
                 >
                   📍 Konumu Haritada Gör
                 </button>
 
-                <div className="mx-auto my-7 flex items-center justify-center gap-3 text-[#d0bf8f]">
-                  <span className="h-px w-14 bg-gradient-to-r from-transparent to-[#c8ad62]" />
+                <div className="mx-auto my-4 flex items-center justify-center gap-3 text-[#d0bf8f]">
+                  <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#c8ad62]" />
                   <span className="text-xs text-[#b99d56]">♥</span>
-                  <span className="h-px w-14 bg-gradient-to-l from-transparent to-[#c8ad62]" />
+                  <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#c8ad62]" />
                 </div>
 
                 <div>
                   {rsvpStatus === null ? (
                     <div>
-                      <div className="mb-5 flex items-center justify-center gap-3">
+                      <div className="mb-3 flex items-center justify-center gap-2">
                         <SmallLeaf />
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#334033]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#334033]">
                           Lütfen Yanıtlayınız
                         </p>
                         <SmallLeaf flip />
                       </div>
 
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
-                          onClick={() => handleRSVP("EVET")}
-                          className="rounded-[9px] bg-[#8d9e82] px-4 py-4 text-[14px] font-medium tracking-[0.08em] text-white shadow-[0_14px_28px_rgba(91,108,79,0.22)] transition hover:bg-[#74866b] active:scale-[0.98]"
+                          onClick={() => {
+                            setShowRsvpBurst(true);
+
+                            setTimeout(() => {
+                              handleRSVP("EVET");
+                              setShowRsvpBurst(false);
+                            }, 850);
+                          }}
+                          className="relative overflow-visible rounded-[9px] bg-[#8d9e82] px-4 py-3 text-[13px] font-medium tracking-[0.08em] text-white shadow-[0_10px_20px_rgba(91,108,79,0.18)] transition hover:bg-[#74866b] active:scale-[0.98]"
                         >
+                          {showRsvpBurst && (
+                            <span className="pointer-events-none absolute inset-0 z-20">
+                              {Array.from({ length: 18 }).map((_, i) => (
+                                <span
+                                  key={i}
+                                  className="rsvp-star absolute left-1/2 top-1/2 text-[#d4af37]"
+                                  style={
+                                    {
+                                      "--x": `${Math.cos((i / 18) * Math.PI * 2) * 72}px`,
+                                      "--y": `${Math.sin((i / 18) * Math.PI * 2) * 46}px`,
+                                      animationDelay: `${i * 0.018}s`,
+                                    } as React.CSSProperties
+                                  }
+                                >
+                                  ✦
+                                </span>
+                              ))}
+                            </span>
+                          )}
                           ♥ Katılıyorum
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleRSVP("HAYIR")}
-                          className="rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-4 text-[14px] tracking-[0.08em] text-[#5d6b58] transition hover:bg-[#f7f0dd] active:scale-[0.98]"
+                          className="rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-3 text-[13px] tracking-[0.08em] text-[#5d6b58] transition hover:bg-[#f7f0dd] active:scale-[0.98]"
                         >
                           ♡ Katılamıyorum
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {rsvpStatus === "EVET" ? (
-                        <div className="space-y-4">
-                          <p className="font-serif text-[18px] italic leading-7 text-[#334033]">
+                        <div className="space-y-3">
+                          <p className="font-serif text-[16px] italic leading-6 text-[#334033]">
                             Harika! Sizi aramızda görmek için sabırsızlanıyoruz.
                           </p>
 
-                          <div className="rounded-[12px] border border-dashed border-[#c8ad62]/75 bg-[#f7f3e7]/80 p-5">
-                            <p className="mb-4 text-[11px] uppercase leading-5 tracking-[0.18em] text-[#697564]">
+                          <div className="rounded-[12px] border border-dashed border-[#c8ad62]/75 bg-[#f7f3e7]/80 p-4">
+                            <p className="mb-3 text-[10px] uppercase leading-5 tracking-[0.16em] text-[#697564]">
                               Bu mutlu günü ölümsüzleştirdiğiniz fotoğrafları
                               bizlerle paylaşın.
                             </p>
 
-                            <label className="inline-block cursor-pointer rounded-[9px] border border-[#c8ad62]/70 bg-white px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-[#334033] transition hover:bg-[#8d9e82] hover:text-white">
+                            <label className="inline-block cursor-pointer rounded-[9px] border border-[#c8ad62]/70 bg-white px-5 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#334033] transition hover:bg-[#8d9e82] hover:text-white">
                               {uploading ? "Yükleniyor..." : "Fotoğraf Yükle"}
                               <input
                                 type="file"
@@ -424,7 +455,7 @@ export default function Envelope({
                           </div>
                         </div>
                       ) : (
-                        <p className="font-serif text-[18px] italic leading-7 text-[#334033]">
+                        <p className="font-serif text-[16px] italic leading-6 text-[#334033]">
                           Gelemediğiniz için üzgünüz, kalbimizdesiniz.
                         </p>
                       )}
@@ -438,13 +469,13 @@ export default function Envelope({
                       </button>
 
                       {approvedPhotos.length > 0 && (
-                        <div className="border-t border-[#d7c79d]/55 pt-6">
-                          <p className="mb-4 text-[10px] uppercase tracking-[0.35em] text-[#7c8575]">
+                        <div className="border-t border-[#d7c79d]/55 pt-4">
+                          <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-[#7c8575]">
                             Anı Kumbarası
                           </p>
 
                           <div className="grid grid-cols-3 gap-2">
-                            {approvedPhotos.map((photo) => (
+                            {approvedPhotos.slice(0, 6).map((photo) => (
                               <img
                                 key={photo.id}
                                 src={photo.foto_url}
@@ -534,15 +565,42 @@ export default function Envelope({
             transform: scale(1.3);
           }
         }
+
+        .rsvp-star {
+          font-size: 12px;
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.2);
+          animation: rsvpStarBurst 0.9s ease-out forwards;
+          text-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+        }
+
+        @keyframes rsvpStarBurst {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+          }
+
+          20% {
+            opacity: 1;
+          }
+
+          100% {
+            opacity: 0;
+            transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y)))
+              scale(1.2) rotate(180deg);
+          }
+        }
       `}</style>
     </main>
   );
 }
 
-function GoldHeart() {
+function GoldHeart({ small = false }: { small?: boolean }) {
   return (
     <span
-      className="font-serif text-[38px] leading-none text-[#c8ad62]"
+      className={`font-serif leading-none text-[#c8ad62] ${
+        small ? "text-[28px]" : "text-[38px]"
+      }`}
       aria-hidden="true"
     >
       ♡
@@ -553,12 +611,12 @@ function GoldHeart() {
 function SmallLeaf({ flip = false }: { flip?: boolean }) {
   return (
     <span
-      className={`relative inline-flex h-5 w-10 items-center justify-center ${
+      className={`relative inline-flex h-4 w-8 items-center justify-center ${
         flip ? "scale-x-[-1]" : ""
       }`}
     >
-      <span className="absolute left-0 h-3 w-6 rotate-[-20deg] rounded-[100%_0_100%_0] bg-[#91a184]" />
-      <span className="absolute right-1 h-3 w-6 rotate-[25deg] rounded-[100%_0_100%_0] bg-[#b7c3ad]" />
+      <span className="absolute left-0 h-2.5 w-5 rotate-[-20deg] rounded-[100%_0_100%_0] bg-[#91a184]" />
+      <span className="absolute right-1 h-2.5 w-5 rotate-[25deg] rounded-[100%_0_100%_0] bg-[#b7c3ad]" />
     </span>
   );
 }
@@ -566,17 +624,17 @@ function SmallLeaf({ flip = false }: { flip?: boolean }) {
 function SideBranch({ flip = false }: { flip?: boolean }) {
   return (
     <div
-      className={`relative h-24 w-12 ${flip ? "scale-x-[-1]" : ""}`}
+      className={`relative h-20 w-10 ${flip ? "scale-x-[-1]" : ""}`}
       aria-hidden="true"
     >
-      <span className="absolute left-6 top-0 h-24 w-px rotate-[12deg] bg-[#aab79c]" />
-      {[8, 24, 40, 56, 72].map((top, index) => (
+      <span className="absolute left-5 top-0 h-20 w-px rotate-[12deg] bg-[#aab79c]" />
+      {[7, 21, 35, 49, 63].map((top, index) => (
         <span
           key={top}
-          className="absolute h-4 w-8 rounded-[100%_0_100%_0] bg-[#9aaa8f]"
+          className="absolute h-3.5 w-7 rounded-[100%_0_100%_0] bg-[#9aaa8f]"
           style={{
             top,
-            left: index % 2 === 0 ? 2 : 15,
+            left: index % 2 === 0 ? 1 : 12,
             transform: `rotate(${index % 2 === 0 ? "-25deg" : "35deg"})`,
             opacity: 0.75,
           }}
@@ -600,19 +658,19 @@ function BotanicalCorner({
         flipY ? "scale-y-[-1]" : ""
       }`}
     >
-      <span className="absolute left-10 top-0 h-[280px] w-[2px] origin-top rotate-[34deg] bg-[#90a184]/40" />
+      <span className="absolute left-10 top-0 h-[220px] w-[2px] origin-top rotate-[34deg] bg-[#90a184]/40" />
 
-      {Array.from({ length: 11 }).map((_, i) => (
+      {Array.from({ length: 9 }).map((_, i) => (
         <span
           key={i}
           className="absolute rounded-[100%_0_100%_0] bg-gradient-to-br from-[#b9c7ae] to-[#667a60] shadow-sm"
           style={{
-            width: 34 + (i % 3) * 9,
-            height: 18 + (i % 3) * 5,
-            left: 38 + i * 8,
-            top: 22 + i * 22,
+            width: 28 + (i % 3) * 7,
+            height: 15 + (i % 3) * 4,
+            left: 34 + i * 7,
+            top: 18 + i * 20,
             transform: `rotate(${i % 2 === 0 ? -38 : 28}deg)`,
-            opacity: 0.58,
+            opacity: 0.5,
           }}
         />
       ))}
