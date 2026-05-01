@@ -391,6 +391,9 @@ export default function Envelope({
                     <p className="mt-1 text-[11px] text-[#7c8575]">
                       Etimesgut / Ankara
                     </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[#6f8068]">
+                      Saat 15.00
+                    </p>
 
                     <button
                       type="button"
@@ -415,6 +418,9 @@ export default function Envelope({
                       Botanik Park Düğün Salonu
                     </p>
                     <p className="mt-1 text-[11px] text-[#7c8575]">Eskişehir</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[#6f8068]">
+                      Saat 14.00
+                    </p>
 
                     <button
                       type="button"
