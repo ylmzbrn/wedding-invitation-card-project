@@ -379,39 +379,57 @@ export default function Envelope({
                   mutluluk duyarız.
                 </p>
 
-                <div className="my-4 flex items-center justify-center gap-3">
-                  <SideBranch />
-                  <div>
-                    <p className="font-serif text-[44px] leading-none text-[#6f8068]">
-                      16
+                <div className="mt-4 grid grid-cols-2 gap-3 text-left">
+                  {/* NİKAH */}
+                  <div className="rounded-[10px] border border-[#c8ad62]/40 bg-white/60 p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#7c8575]">
+                      Nikah
                     </p>
-                    <p className="mt-1 text-[11px] uppercase tracking-[0.32em] text-[#334033]">
-                      Mayıs 2026
+                    <p className="mt-1 font-serif text-[13px] text-[#334033]">
+                      Korkut Ata Kongre Merkezi
                     </p>
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#7c8575]">
-                      Cumartesi • Saat 14:00
+                    <p className="mt-1 text-[11px] text-[#7c8575]">
+                      Etimesgut / Ankara
                     </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          "https://maps.google.com/?q=Korkut+Ata+Kongre+Merkezi+Etimesgut",
+                          "_blank",
+                        )
+                      }
+                      className="mt-2 text-[10px] underline text-[#6f8068]"
+                    >
+                      Haritada Gör
+                    </button>
                   </div>
-                  <SideBranch flip />
+
+                  {/* DÜĞÜN */}
+                  <div className="rounded-[10px] border border-[#c8ad62]/40 bg-white/60 p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#7c8575]">
+                      Düğün
+                    </p>
+                    <p className="mt-1 font-serif text-[13px] text-[#334033]">
+                      Botanik Park Düğün Salonu
+                    </p>
+                    <p className="mt-1 text-[11px] text-[#7c8575]">Eskişehir</p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          "https://maps.app.goo.gl/nJaAETa7i7Za8ySj9",
+                          "_blank",
+                        )
+                      }
+                      className="mt-2 text-[10px] underline text-[#6f8068]"
+                    >
+                      Haritada Gör
+                    </button>
+                  </div>
                 </div>
-
-                <p className="font-serif text-[15px] font-medium text-[#334033]">
-                  Botanik Park Düğün Salonu
-                </p>
-                <p className="mt-0.5 text-[12px] text-[#7c8575]">Eskişehir</p>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    window.open(
-                      "https://maps.app.goo.gl/nJaAETa7i7Za8ySj9",
-                      "_blank",
-                    )
-                  }
-                  className="mt-4 w-full rounded-[9px] border border-[#c8ad62]/70 bg-white/70 px-4 py-3 text-[12px] tracking-[0.13em] text-[#5d6b58] shadow-sm transition hover:bg-[#f7f0dd] active:scale-[0.98]"
-                >
-                  📍 Konumu Haritada Gör
-                </button>
 
                 <div className="mx-auto my-4 flex items-center justify-center gap-3 text-[#d0bf8f]">
                   <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#c8ad62]" />
