@@ -25,11 +25,40 @@ type Guest = {
   olusturulma_tarihi?: string;
 };
 
+type NormalizedStatus = "evet" | "hayir" | "belirsiz";
+
 export default function Dashboard() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const normalizeStatus = (status?: string | null): NormalizedStatus => {
+    const value = status?.toString().trim().toLowerCase();
+
+    if (!value) return "belirsiz";
+
+    if (
+      value === "evet" ||
+      value === "geliyorum" ||
+      value === "katılıyorum" ||
+      value === "katiliyorum"
+    ) {
+      return "evet";
+    }
+
+    if (
+      value === "hayır" ||
+      value === "hayir" ||
+      value === "gelmiyorum" ||
+      value === "katılmıyorum" ||
+      value === "katilmiyorum"
+    ) {
+      return "hayir";
+    }
+
+    return "belirsiz";
+  };
 
   const fetchGuests = async () => {
     const { data, error } = await supabase
@@ -77,23 +106,21 @@ export default function Dashboard() {
     setRefreshing(false);
   }, []);
 
-  const normalizeStatus = (status?: string | null) =>
-    status?.toLowerCase().trim();
-
   const stats = {
     total: guests.length,
-    coming: guests.filter(
-      (g) =>
-        normalizeStatus(g.durum) === "geliyorum" ||
-        normalizeStatus(g.durum) === "katılıyorum"
-    ).length,
-    notComing: guests.filter(
-      (g) =>
-        normalizeStatus(g.durum) === "gelmiyorum" ||
-        normalizeStatus(g.durum) === "katılmıyorum"
-    ).length,
-    pending: guests.filter((g) => !g.durum).length,
-    totalPeople: guests.reduce((sum, g) => sum + (g.kisi_sayisi || 0), 0),
+
+    coming: guests.filter((g) => normalizeStatus(g.durum) === "evet").length,
+
+    notComing: guests.filter((g) => normalizeStatus(g.durum) === "hayir")
+      .length,
+
+    pending: guests.filter((g) => normalizeStatus(g.durum) === "belirsiz")
+      .length,
+
+    totalPeople: guests.reduce(
+      (sum, g) => sum + Number(g.kisi_sayisi || 1),
+      0
+    ),
   };
 
   const filteredGuests = guests.filter((guest) =>
@@ -103,20 +130,20 @@ export default function Dashboard() {
   const getStatusStyle = (status?: string | null) => {
     const normalized = normalizeStatus(status);
 
-    if (normalized === "geliyorum" || normalized === "katılıyorum") {
+    if (normalized === "evet") {
       return {
         bg: "#E8F5E9",
         color: "#2E7D32",
-        label: status || "Geliyor",
+        label: "Geliyor",
         icon: "checkmark-circle" as const,
       };
     }
 
-    if (normalized === "gelmiyorum" || normalized === "katılmıyorum") {
+    if (normalized === "hayir") {
       return {
         bg: "#FFF0F0",
         color: "#7B1113",
-        label: status || "Gelmiyor",
+        label: "Gelmiyor",
         icon: "close-circle" as const,
       };
     }
@@ -130,11 +157,7 @@ export default function Dashboard() {
   };
 
   const openGuestLink = async (slug: string) => {
-    /**
-     * Burayı gerçek web-app domaininle değiştireceğiz.
-     * Şimdilik slug kontrolü için bırakıyoruz.
-     */
-    const url = `https://your-domain.com/card-content/${slug}`;
+    const url = `https://berna-suat-wedding.vercel.app/${slug}`;
 
     try {
       await Linking.openURL(url);
@@ -163,7 +186,7 @@ export default function Dashboard() {
             </TouchableOpacity>
 
             <Text style={styles.peopleText}>
-              {item.kisi_sayisi || 0} kişi
+              {Number(item.kisi_sayisi || 1)} kişi
             </Text>
           </View>
         </View>
